@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Profile — {{ job.title }}{% endblock %}
+{% block content %}
+<section class="card">
+  <div class="row space-between">
+    <div>
+      <p class="eyebrow">{{ job.company }} Careers</p>
+      <h1>Your profile</h1>
+      <p class="muted small">Education, projects, internships, and experience are shown on your dashboard.</p>
+    </div>
+    <div class="row">
+      <a class="btn ghost" href="/dashboard/student">Dashboard</a>
+      <button class="btn ghost" onclick="logout()">Logout</button>
+    </div>
+  </div>
+  <form id="profile-form" class="grid">
+    <label>Full name <input id="full_name" required></label>
+    <label>Email <input id="email" disabled></label>
+    <label>Phone <input id="phone" required></label>
+    <label>Skills (comma separated) <input id="skills"></label>
+    <label>Experience <input id="experience"></label>
+    <label>Qualification <input id="qualification"></label>
+    <button type="submit" class="btn">Save changes</button>
+  </form>
+  <p id="meta" class="muted"></p>
+</section>
+{% endblock %}
+{% block scripts %}
+<script>
+async function loadProfile() {
+  try {
+    const res = await apiFetch("/api/v1/profile");
+    const p = res.data;
+    document.getElementById("full_name").value = p.full_name || "";
+    document.getElementById("email").value = p.email || "";
+    document.getElementById("phone").value = p.phone || "";
+    document.getElementById("skills").value = (p.skills || []).join(", ");
+    document.getElementById("experience").value = p.experience || "";
+    document.getElementById("qualification").value = p.qualification || "";
+    document.getElementById("meta").textContent =
+      `Status: ${p.status} • Email verified: ${p.email_verified} • ` +
+      `WhatsApp verified: ${p.whatsapp_verified} • ` +
+      `TOTP: ${p.totp_enabled}`;
+  } catch (err) {
+    showAlert(err.message);
+  }
+}
+
+document.getElementById("profile-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const payload = {
+    full_name: document.getElementById("full_name").value.trim(),
+    phone: document.getElementById("phone").value.trim(),
+    skills: document.getElementById("skills").value
+      .split(",").map((s) => s.trim()).filter(Boolean),
+    experience: document.getElementById("experience").value.trim() || null,
+    qualification: document.getElementById("qualification").value.trim() || null,
+  };
+  try {
+    await apiFetch("/api/v1/profile", {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    });
+    showAlert("Profile updated.", "success");
+    loadProfile();
+  } catch (err) {
+    showAlert(err.message);
+  }
+});
+
+loadProfile();
+</script>
+{% endblock %}

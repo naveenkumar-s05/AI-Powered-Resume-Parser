@@ -1,0 +1,276 @@
+{% extends "base.html" %}
+{% block title %}Review your details — {{ job.title }}{% endblock %}
+{% block content %}
+<section class="card apply-card">
+  <div class="step-head">
+    <span class="step-badge">Step 2 of 4</span>
+    <h1>Review your details</h1>
+    <p>We pre-filled what we could from <strong id="resume-name">your resume</strong>. Add or edit anything before continuing.</p>
+  </div>
+
+  <div id="missing-resume" class="alert warning hidden">
+    No resume found in this session. <a href="/apply">Upload your resume first</a>.
+  </div>
+
+  <form id="details-form" class="details-form">
+    <fieldset class="form-section">
+      <legend>Personal details</legend>
+      <div class="form-grid">
+        <label>Full name <input id="full_name" required></label>
+        <label>Email <input id="email" type="email" required></label>
+        <label>Phone <input id="phone" required placeholder="9876543210"></label>
+        <label>Date of birth <span class="hint">Optional</span><input id="dob" type="date"></label>
+        <label class="span-2">Skills <span class="hint">Comma separated</span><input id="skills" placeholder="Python, FastAPI, React"></label>
+      </div>
+    </fieldset>
+
+    <fieldset class="form-section">
+      <legend>Summary</legend>
+      <div class="form-grid">
+        <label>Highest qualification <input id="qualification" placeholder="B.E. Computer Science"></label>
+        <label>Experience summary <input id="experience" placeholder="Fresher / 2 years"></label>
+      </div>
+    </fieldset>
+
+    <fieldset class="form-section">
+      <legend>Education</legend>
+      <p class="muted small">Add each degree, diploma, or school qualification.</p>
+      <div id="education-list" class="entry-list"></div>
+      <button type="button" class="btn ghost" onclick="addEducation()">+ Add education</button>
+    </fieldset>
+
+    <fieldset class="form-section">
+      <legend>Projects</legend>
+      <p class="muted small">Add projects you want the hiring team to see.</p>
+      <div id="projects-list" class="entry-list"></div>
+      <button type="button" class="btn ghost" onclick="addProject()">+ Add project</button>
+    </fieldset>
+
+    <fieldset class="form-section">
+      <legend>Internships</legend>
+      <p class="muted small">Add internships or training programmes.</p>
+      <div id="internships-list" class="entry-list"></div>
+      <button type="button" class="btn ghost" onclick="addInternship()">+ Add internship</button>
+    </fieldset>
+
+    <fieldset class="form-section">
+      <legend>Work experience</legend>
+      <p class="muted small">Add full-time or part-time roles. Leave this empty if you are a fresher.</p>
+      <div id="experience-list" class="entry-list"></div>
+      <button type="button" class="btn ghost" onclick="addExperience()">+ Add experience</button>
+    </fieldset>
+
+    <div class="form-actions">
+      <a class="btn ghost" href="/apply">Back to upload</a>
+      <button type="submit" class="btn large">Continue to password</button>
+    </div>
+  </form>
+</section>
+{% endblock %}
+{% block scripts %}
+<script>
+const RESUME_KEY = "application_resume";
+const DETAILS_KEY = "application_details";
+let resumeData = null;
+
+function inputField(label, name, value, placeholder = "", span2 = false, type = "text") {
+  return `<label class="${span2 ? "span-2" : ""}">${label}
+    <input data-field="${name}" type="${type}" value="${escapeHtml(value || "")}" placeholder="${escapeHtml(placeholder)}">
+  </label>`;
+}
+
+function textareaField(label, name, value, placeholder = "", rows = 3) {
+  return `<label class="span-2">${label}
+    <textarea data-field="${name}" rows="${rows}" placeholder="${escapeHtml(placeholder)}">${escapeHtml(value || "")}</textarea>
+  </label>`;
+}
+
+function entryCard(title, body, addButtonLabel) {
+  const card = document.createElement("div");
+  card.className = "entry-card";
+  card.innerHTML = `
+    <div class="entry-head">
+      <strong>${title}</strong>
+      <button type="button" class="btn tiny ghost" onclick="this.closest('.entry-card').remove()">Remove</button>
+    </div>
+    <div class="entry-grid">${body}</div>`;
+  return card;
+}
+
+function addEducation(data = {}) {
+  const body = [
+    inputField("Degree / qualification", "degree", data.degree, "B.E. Computer Science"),
+    inputField("Institution", "institution", data.institution, "Anna University"),
+    inputField("Year", "year", data.year, "2020 - 2024"),
+    inputField("CGPA / percentage", "cgpa", data.cgpa, "8.9"),
+    textareaField("Details", "details", data.details, "Relevant coursework or achievements", 2),
+  ].join("");
+  document.getElementById("education-list").appendChild(entryCard("Education", body));
+}
+
+function addProject(data = {}) {
+  const technologies = Array.isArray(data.technologies)
+    ? data.technologies.join(", ")
+    : (data.technologies || "");
+  const body = [
+    inputField("Project title", "title", data.title, "AI-Powered Resume Parser"),
+    inputField("Technologies", "technologies", technologies, "Python, FastAPI, PostgreSQL"),
+    textareaField("Description", "description", data.description, "What did you build and what impact did it have?", 3),
+  ].join("");
+  document.getElementById("projects-list").appendChild(entryCard("Project", body));
+}
+
+function addWorkEntry(containerId, label, data = {}) {
+  const body = [
+    inputField("Company", "company", data.company, "Company name"),
+    inputField("Role", "role", data.role, "Software Engineer Intern"),
+    inputField("Duration", "duration", data.duration, "Jun 2024 - Aug 2024"),
+    textareaField("Description", "description", data.description, "What did you work on?", 3),
+  ].join("");
+  document.getElementById(containerId).appendChild(entryCard(label, body));
+}
+
+function addInternship(data = {}) {
+  addWorkEntry("internships-list", "Internship", data);
+}
+
+function addExperience(data = {}) {
+  addWorkEntry("experience-list", "Work experience", data);
+}
+
+function collectEntries(containerId, fields) {
+  const cards = document.querySelectorAll(`#${containerId} .entry-card`);
+  const items = [];
+  cards.forEach((card) => {
+    const item = {};
+    fields.forEach(([key, kind]) => {
+      const el = card.querySelector(`[data-field="${key}"]`);
+      if (!el) return;
+      const raw = el.value.trim();
+      if (!raw) return;
+      item[key] = kind === "list"
+        ? raw.split(",").map((part) => part.trim()).filter(Boolean)
+        : raw;
+    });
+    if (Object.keys(item).length > 0) items.push(item);
+  });
+  return items;
+}
+
+function hasMissingRequired(items, field, label) {
+  if (items.some((item) => !item[field])) {
+    showAlert(`Please add a ${label} for each entry, or remove the empty entry.`);
+    return true;
+  }
+  return false;
+}
+
+(function prefill() {
+  const stored = sessionStorage.getItem(RESUME_KEY);
+  if (!stored) {
+    document.getElementById("details-form").classList.add("hidden");
+    document.getElementById("missing-resume").classList.remove("hidden");
+    setTimeout(() => { location.href = "/apply"; }, 1800);
+    return;
+  }
+
+  try {
+    resumeData = JSON.parse(stored);
+  } catch (_) {
+    showAlert("Could not read the parsed resume. Please upload it again.");
+    setTimeout(() => { location.href = "/apply"; }, 1200);
+    return;
+  }
+
+  const parsed = resumeData.parsed || {};
+  document.getElementById("resume-name").textContent = resumeData.file_name || "your resume";
+  document.getElementById("full_name").value = parsed.full_name || "";
+  document.getElementById("email").value = parsed.email || "";
+  document.getElementById("phone").value = parsed.phone || "";
+  document.getElementById("dob").value = parsed.dob || "";
+  document.getElementById("skills").value = (parsed.skills || []).join(", ");
+  document.getElementById("qualification").value = parsed.qualification || "";
+  document.getElementById("experience").value = parsed.experience || "";
+
+  (parsed.education || []).forEach((item) => addEducation(item));
+  (parsed.projects || []).forEach((item) => addProject(item));
+  (parsed.internships || []).forEach((item) => addInternship(item));
+  (parsed.experience_entries || []).forEach((item) => addExperience(item));
+
+  const warnings = resumeData.warnings || [];
+  if (warnings.length) {
+    showAlert(warnings.join(" • "), "info", true);
+  } else {
+    showAlert("Resume parsed. Review your details and add anything that is missing.", "success", true);
+  }
+})();
+
+document.getElementById("details-form").addEventListener("submit", (e) => {
+  e.preventDefault();
+  if (!resumeData) return;
+
+  const fullName = document.getElementById("full_name").value.trim();
+  const email = document.getElementById("email").value.trim();
+  const phone = document.getElementById("phone").value.trim();
+  const phoneDigits = phone.replace(/\D/g, "");
+
+  if (!fullName || !email || !phone) {
+    showAlert("Name, email, and phone are required.");
+    return;
+  }
+  if (phoneDigits.length < 10 || phoneDigits.length > 15) {
+    showAlert("Phone must be 10–15 digits (for example 9876543210 or +919876543210).");
+    return;
+  }
+
+  const education = collectEntries("education-list", [
+    ["degree", "text"],
+    ["institution", "text"],
+    ["year", "text"],
+    ["cgpa", "text"],
+    ["details", "text"],
+  ]);
+  if (hasMissingRequired(education, "degree", "degree")) return;
+
+  const projects = collectEntries("projects-list", [
+    ["title", "text"],
+    ["description", "text"],
+    ["technologies", "list"],
+  ]);
+  if (hasMissingRequired(projects, "title", "project title")) return;
+
+  const internships = collectEntries("internships-list", [
+    ["company", "text"],
+    ["role", "text"],
+    ["duration", "text"],
+    ["description", "text"],
+  ]);
+  const experienceEntries = collectEntries("experience-list", [
+    ["company", "text"],
+    ["role", "text"],
+    ["duration", "text"],
+    ["description", "text"],
+  ]);
+
+  const details = {
+    full_name: fullName,
+    email,
+    phone,
+    dob: document.getElementById("dob").value || null,
+    skills: document.getElementById("skills").value
+      .split(",").map((item) => item.trim()).filter(Boolean),
+    qualification: document.getElementById("qualification").value.trim() || null,
+    experience: document.getElementById("experience").value.trim() || null,
+    education,
+    projects,
+    internships,
+    experience_entries: experienceEntries,
+    applied_role: {{ job.title|tojson }},
+    resume_id: resumeData.resume_id || null,
+  };
+
+  sessionStorage.setItem(DETAILS_KEY, JSON.stringify(details));
+  location.href = "/apply/password";
+});
+</script>
+{% endblock %}

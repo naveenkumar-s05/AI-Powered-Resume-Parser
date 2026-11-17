@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{{ job.company }} Careers{% endblock %}</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <header class="nav">
+    <a class="brand" href="/">
+      <span class="brand-mark">{{ job.company[0] }}</span>
+      <span>{{ job.company }} <small>Careers</small></span>
+    </a>
+    <nav>
+      <a href="/" class="{{ 'active' if active == 'home' else '' }}">Job</a>
+      <a href="/apply" class="{{ 'active' if active == 'apply' else '' }}">Apply</a>
+      <a href="/verify" class="{{ 'active' if active == 'verify' else '' }}">Verify</a>
+      <a href="/dashboard/student" class="{{ 'active' if active == 'dashboard' else '' }}">Dashboard</a>
+      <a href="/profile" class="{{ 'active' if active == 'profile' else '' }}">Profile</a>
+      <a href="/login" class="{{ 'active' if active == 'login' else '' }}">Login</a>
+    </nav>
+  </header>
+
+  <main class="container">
+    <div id="alert" class="alert hidden"></div>
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="footer">
+    <span>{{ job.company }} • {{ job.title }}</span>
+    <span>Powered by AI Resume Parser</span>
+  </footer>
+
+  <script src="/static/js/app.js"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

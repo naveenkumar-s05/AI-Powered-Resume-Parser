@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% block title %}Application dashboard — {{ job.title }}{% endblock %}
+{% block content %}
+<section class="card">
+  <div class="row space-between">
+    <div>
+      <p class="eyebrow">{{ job.company }} Careers</p>
+      <h1>Application dashboard</h1>
+      <p class="lead">Welcome, <strong>{{ full_name }}</strong>.</p>
+    </div>
+    <div class="row">
+      <a class="btn ghost" href="/profile">Edit profile</a>
+      <button class="btn ghost" onclick="logout()">Logout</button>
+    </div>
+  </div>
+  <div id="dashboard" class="result">Loading...</div>
+</section>
+{% endblock %}
+{% block scripts %}
+<script>
+function renderEducation(items) {
+  const content = (items || []).length
+    ? `<div class="detail-list">${items.map((item) => `
+        <div class="detail-item">
+          <strong>${escapeHtml(item.degree || "Education")}</strong>
+          <span>${[item.institution, item.year, item.cgpa ? `CGPA ${item.cgpa}` : ""]
+            .filter(Boolean).map(escapeHtml).join(" • ")}</span>
+          ${item.details ? `<p class="muted small">${escapeHtml(item.details)}</p>` : ""}
+        </div>`).join("")}</div>`
+    : `<p class="muted">No education entries provided.</p>`;
+  return `<div class="detail-card"><h3>Education</h3>${content}</div>`;
+}
+
+function renderProjects(items) {
+  const content = (items || []).length
+    ? `<div class="detail-list">${items.map((item) => `
+        <div class="detail-item">
+          <strong>${escapeHtml(item.title || "Project")}</strong>
+          ${item.technologies && item.technologies.length
+            ? `<span>${item.technologies.map(escapeHtml).join(" • ")}</span>` : ""}
+          ${item.description ? `<p class="muted small">${escapeHtml(item.description)}</p>` : ""}
+        </div>`).join("")}</div>`
+    : `<p class="muted">No projects provided.</p>`;
+  return `<div class="detail-card"><h3>Projects</h3>${content}</div>`;
+}
+
+function renderWork(title, items) {
+  const content = (items || []).length
+    ? `<div class="detail-list">${items.map((item) => {
+        const heading = item.role || item.company || "Experience";
+        const meta = [
+          item.company && item.role ? item.company : "",
+          item.duration,
+        ].filter(Boolean).map(escapeHtml).join(" • ");
+        return `<div class="detail-item">
+          <strong>${escapeHtml(heading)}</strong>
+          ${meta ? `<span>${meta}</span>` : ""}
+          ${item.description ? `<p class="muted small">${escapeHtml(item.description)}</p>` : ""}
+        </div>`;
+      }).join("")}</div>`
+    : `<p class="muted">No entries provided.</p>`;
+  return `<div class="detail-card"><h3>${title}</h3>${content}</div>`;
+}
+
+(async function loadDashboard() {
+  try {
+    const res = await apiFetch("/api/v1/dashboard/student");
+    const d = res.data;
+    const statusLabel = d.application_status === "under_review" ? "Under review" : "Submitted";
+    const statusClass = d.application_status === "under_review" ? "badge-success" : "badge-warn";
+
+    document.getElementById("dashboard").innerHTML = `
+      <div class="dashboard-head">
+        <div>
+          <p class="eyebrow">${escapeHtml((d.job && d.job.company) || "{{ job.company }}")}</p>
+          <h2>${escapeHtml((d.job && d.job.title) || "{{ job.title }}")}</h2>
+          <p class="muted">${escapeHtml((d.job && d.job.location) || "")} • ${escapeHtml((d.job && d.job.type) || "")}</p>
+        </div>
+        <span class="status-badge ${statusClass}">${statusLabel}</span>
+      </div>
+
+      <div class="detail-grid">
+        <div class="detail-card">
+          <h3>Personal details</h3>
+          <dl class="overview">
+            <div><dt>Name</dt><dd>${escapeHtml(d.full_name || "")}</dd></div>
+            <div><dt>Email</dt><dd>${escapeHtml(d.email || "")}</dd></div>
+            <div><dt>WhatsApp</dt><dd>${escapeHtml(d.phone || "")}</dd></div>
+            <div><dt>Date of birth</dt><dd>${escapeHtml(formatDate(d.dob))}</dd></div>
+          </dl>
+        </div>
+        <div class="detail-card">
+          <h3>Application</h3>
+          <dl class="overview">
+            <div><dt>Role</dt><dd>${escapeHtml(d.applied_role || (d.job && d.job.title) || "")}</dd></div>
+            <div><dt>Status</dt><dd>${statusLabel}</dd></div>
+            <div><dt>Account</dt><dd>${escapeHtml(d.user_state || "")}</dd></div>
+          </dl>
+        </div>
+      </div>
+
+      <div class="detail-card">
+        <h3>Skills</h3>
+        ${d.skills && d.skills.length
+          ? `<div class="tag-list">${d.skills.map((skill) => `<span class="tag">${escapeHtml(skill)}</span>`).join("")}</div>`
+          : `<p class="muted">No skills listed.</p>`}
+      </div>
+
+      <div class="detail-card">
+        <h3>Summary</h3>
+        <p><strong>Highest qualification:</strong> ${escapeHtml(d.qualification || "Not provided")}</p>
+        <p><strong>Experience:</strong> ${escapeHtml(d.experience || "Not provided")}</p>
+      </div>
+
+      ${renderEducation(d.education)}
+      ${renderProjects(d.projects)}
+      ${renderWork("Internships", d.internships)}
+      ${renderWork("Work experience", d.experience_entries)}
+
+      <p class="muted small">Application ID: ${escapeHtml(d.id || "")}</p>
+    `;
+  } catch (err) {
+    showAlert(err.message);
+  }
+})();
+</script>
+{% endblock %}

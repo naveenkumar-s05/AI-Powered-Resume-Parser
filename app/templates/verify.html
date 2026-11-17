@@ -1,0 +1,247 @@
+{% extends "base.html" %}
+{% block title %}Verify your identity — {{ job.title }}{% endblock %}
+{% block content %}
+<section class="card apply-card">
+  <div class="step-head">
+    <span class="step-badge">Step 4 of 4</span>
+    <h1>Verify your identity</h1>
+    <p>Complete the verification steps below to activate your account and reach your dashboard.</p>
+  </div>
+
+  <div id="pending-summary" class="summary-card hidden"></div>
+
+  <label>User ID
+    <input id="user_id" placeholder="Paste your user ID if it is not filled automatically">
+    <span class="hint">Keep this tab open until verification is complete.</span>
+  </label>
+
+  <div class="verify-grid">
+    <div class="verify-box">
+      <h2>Email OTP</h2>
+      <p id="email_sent_to" class="muted small"></p>
+      <input id="email_code" inputmode="numeric" pattern="[0-9]*" maxlength="6"
+             autocomplete="one-time-code" placeholder="6-digit code">
+      <div class="row">
+        <button class="btn" data-channel="email">Verify email</button>
+        <button class="btn ghost" data-resend="email">Resend</button>
+      </div>
+      <p id="email_status" class="status"></p>
+      <p class="muted small">Check spam or promotions if the email does not arrive.</p>
+    </div>
+
+    <div id="whatsapp_box" class="verify-box">
+      <h2>WhatsApp OTP</h2>
+      <p id="whatsapp_sent_to" class="muted small"></p>
+      <input id="whatsapp_code" inputmode="numeric" pattern="[0-9]*" maxlength="8"
+             autocomplete="one-time-code" placeholder="Enter code">
+      <div class="row">
+        <button class="btn" data-channel="whatsapp">Verify WhatsApp</button>
+        <button class="btn ghost" data-resend="whatsapp">Resend</button>
+      </div>
+      <p id="whatsapp_status" class="status"></p>
+      <p class="muted small">If it does not arrive, check WhatsApp Message requests and blocked contacts, then tap Resend.</p>
+    </div>
+  </div>
+
+  <details class="totp">
+    <summary>Optional: Browser TOTP</summary>
+    <p>After your account is active, you can enable TOTP from the Profile page (or the TOTP API).</p>
+  </details>
+
+  <div class="form-actions">
+    <a class="btn ghost" href="/">Back to job</a>
+  </div>
+</section>
+{% endblock %}
+{% block scripts %}
+<script>
+const PENDING_KEY = "pending_user";
+let pendingUser = null;
+
+function readPending() {
+  const stored = sessionStorage.getItem(PENDING_KEY);
+  if (!stored) return null;
+  try {
+    return JSON.parse(stored);
+  } catch (_) {
+    return null;
+  }
+}
+
+function savePending() {
+  if (pendingUser) {
+    sessionStorage.setItem(PENDING_KEY, JSON.stringify(pendingUser));
+  }
+}
+
+function markVerified(channel) {
+  document.getElementById(channel + "_status").textContent = "Verified ✓";
+  document.getElementById(channel + "_code").disabled = true;
+  const verifyButton = document.querySelector(`[data-channel="${channel}"]`);
+  const resendButton = document.querySelector(`[data-resend="${channel}"]`);
+  if (verifyButton) {
+    verifyButton.disabled = true;
+    verifyButton.textContent = "Verified";
+  }
+  if (resendButton) resendButton.disabled = true;
+}
+
+function startCooldown(channel, seconds = 60) {
+  const button = document.querySelector(`[data-resend="${channel}"]`);
+  if (!button || button.disabled) return;
+  button.dataset.label = button.dataset.label || button.textContent;
+  let remaining = Math.max(0, seconds);
+  button.disabled = true;
+  const tick = () => {
+    if (remaining <= 0) {
+      button.disabled = false;
+      button.textContent = button.dataset.label || "Resend";
+      return;
+    }
+    button.textContent = `Resend (${remaining}s)`;
+    remaining -= 1;
+    setTimeout(tick, 1000);
+  };
+  tick();
+}
+
+(function prefillUserId() {
+  pendingUser = readPending();
+  if (!pendingUser) {
+    document.getElementById("user_id").value = sessionStorage.getItem("user_id") || "";
+    return;
+  }
+
+  document.getElementById("user_id").value = pendingUser.user_id || "";
+  const verification = pendingUser.verification || {};
+  const required = verification.required || ["email", "whatsapp"];
+  const challenges = verification.challenges || [];
+  const emailChallenge = challenges.find((item) => item.channel === "email");
+  const whatsappChallenge = challenges.find((item) => item.channel === "whatsapp");
+  const whatsappBox = document.getElementById("whatsapp_box");
+  if (whatsappBox && required.includes("whatsapp")) {
+    whatsappBox.classList.remove("hidden");
+  }
+  if (emailChallenge) {
+    document.getElementById("email_sent_to").textContent = `Sent to ${emailChallenge.sent_to}`;
+  }
+  if (whatsappChallenge) {
+    document.getElementById("whatsapp_sent_to").textContent = `Sent to ${whatsappChallenge.sent_to}`;
+  }
+
+  const summary = document.getElementById("pending-summary");
+  summary.classList.remove("hidden");
+  summary.innerHTML = `
+    <div><span>Application</span><strong>${escapeHtml(pendingUser.applied_role || {{ job.title|tojson }})}</strong></div>
+    <div><span>Email</span><strong>${escapeHtml(pendingUser.email || "")}</strong></div>
+    <div><span>WhatsApp</span><strong>${escapeHtml(pendingUser.phone || "")}</strong></div>
+  `;
+
+  const remaining = pendingUser.remaining_channels || required;
+  required.forEach((channel) => {
+    if (!remaining.includes(channel)) markVerified(channel);
+  });
+
+  if (pendingUser.delivery && pendingUser.delivery.email === false) {
+    showAlert("The email OTP could not be confirmed. Use Resend or check your SMTP settings.", "warning", true);
+  } else if (required.includes("whatsapp") && pendingUser.delivery && pendingUser.delivery.whatsapp === false) {
+    showAlert("The WhatsApp OTP could not be confirmed. Use Resend or check the WhatsApp API settings.", "warning", true);
+  } else if (pendingUser.warnings && pendingUser.warnings.length) {
+    showAlert(pendingUser.warnings.join(" • "), "warning", true);
+  } else {
+    showAlert("Codes sent. Enter both OTPs to activate your account.", "info", true);
+  }
+})();
+
+document.querySelectorAll('input[inputmode="numeric"]').forEach((input) => {
+  input.addEventListener("input", () => {
+    input.value = input.value.replace(/\D/g, "").slice(0, 8);
+  });
+});
+
+function userId() {
+  return document.getElementById("user_id").value.trim();
+}
+
+async function verifyChannel(channel) {
+  if (!userId()) {
+    showAlert("User ID is missing. Register first or paste your user ID.");
+    return;
+  }
+  const code = document.getElementById(channel + "_code").value.trim();
+  const minLength = channel === "email" ? 6 : 5;
+  if (code.length < minLength || code.length > 8) {
+    showAlert(channel === "email" ? "Enter the 6-digit code first." : "Enter the code first.");
+    return;
+  }
+
+  const button = document.querySelector(`[data-channel="${channel}"]`);
+  const buttonText = button.textContent;
+  button.disabled = true;
+  button.textContent = "Verifying...";
+
+  try {
+    const res = await apiFetch("/api/v1/auth/verify-2fa", {
+      method: "POST",
+      body: JSON.stringify({ user_id: userId(), channel, code }),
+    });
+    const data = res.data;
+    markVerified(channel);
+
+    if (data.access_token) {
+      setToken(data.access_token);
+      sessionStorage.removeItem(PENDING_KEY);
+      sessionStorage.removeItem("register_result");
+      sessionStorage.removeItem("user_id");
+      showAlert("Account activated. Redirecting to your dashboard...", "success");
+      setTimeout(() => { location.href = data.redirect_url || "/dashboard/student"; }, 800);
+      return;
+    }
+
+    if (pendingUser) {
+      pendingUser.remaining_channels = data.remaining_channels || [];
+      pendingUser.user_status = data.user_status;
+      pendingUser.email_verified = !(data.remaining_channels || []).includes("email");
+      pendingUser.whatsapp_verified = !(data.remaining_channels || []).includes("whatsapp");
+      savePending();
+    }
+    const remaining = (data.remaining_channels || []).join(", ");
+    showAlert(res.message + (remaining ? ` Remaining: ${remaining}` : ""), "success");
+  } catch (err) {
+    button.disabled = false;
+    button.textContent = buttonText;
+    showAlert(err.message);
+  }
+}
+
+async function resendChannel(channel) {
+  if (!userId()) {
+    showAlert("User ID is missing.");
+    return;
+  }
+  try {
+    const res = await apiFetch("/api/v1/auth/resend-otp", {
+      method: "POST",
+      body: JSON.stringify({ user_id: userId(), channel }),
+    });
+    if (res.data.delivery === false) {
+      showAlert(`A new ${channel} code was requested, but delivery was not confirmed. Check the channel configuration and try again.`, "warning", true);
+    } else {
+      showAlert(`New ${channel} code sent to ${res.data.sent_to}.`, "success");
+    }
+    startCooldown(channel, 60);
+  } catch (err) {
+    const waitMatch = String(err.message || "").match(/wait (\d+) second/i);
+    if (waitMatch) startCooldown(channel, parseInt(waitMatch[1], 10));
+    showAlert(err.message);
+  }
+}
+
+document.querySelectorAll("[data-channel]").forEach((btn) => {
+  btn.addEventListener("click", () => verifyChannel(btn.dataset.channel));
+});
+document.querySelectorAll("[data-resend]").forEach((btn) => {
+  btn.addEventListener("click", () => resendChannel(btn.dataset.resend));
+});
+</script>
+{% endblock %}

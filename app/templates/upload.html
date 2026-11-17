@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Upload your resume — {{ job.title }}{% endblock %}
+{% block content %}
+<section class="card apply-card">
+  <div class="step-head">
+    <span class="step-badge">Step 1 of 4</span>
+    <h1>Upload your resume</h1>
+    <p>Applying for <strong>{{ job.title }}</strong> at {{ job.company }}. We'll parse your resume and pre-fill the next step.</p>
+  </div>
+
+  <form id="upload-form" class="grid">
+    <label class="dropzone" for="resume">
+      <input type="file" id="resume" accept=".pdf,.docx" required>
+      <span class="dropzone-icon">PDF / DOCX</span>
+      <span class="dropzone-title">Choose a resume file</span>
+      <span class="dropzone-hint">PDF or DOCX, up to 5 MB</span>
+      <span id="file-name" class="file-name"></span>
+    </label>
+    <div class="form-actions">
+      <button type="submit" class="btn large">Parse resume</button>
+      <a class="btn ghost" href="/">Back to job</a>
+    </div>
+  </form>
+  <p class="muted small">Your resume is used only for this application.</p>
+</section>
+{% endblock %}
+{% block scripts %}
+<script>
+const uploadForm = document.getElementById("upload-form");
+const uploadButton = uploadForm.querySelector('button[type="submit"]');
+const uploadButtonText = uploadButton.textContent;
+const fileInput = document.getElementById("resume");
+const fileName = document.getElementById("file-name");
+
+fileInput.addEventListener("change", () => {
+  fileName.textContent = fileInput.files[0] ? fileInput.files[0].name : "";
+});
+
+uploadForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const file = fileInput.files[0];
+  if (!file) {
+    showAlert("Choose a PDF or DOCX resume first.");
+    return;
+  }
+
+  const form = new FormData();
+  form.append("file", file);
+
+  uploadButton.disabled = true;
+  uploadButton.textContent = "Parsing...";
+  showAlert("Parsing resume, please wait...", "info", true);
+
+  try {
+    const payload = await apiFetch("/api/v1/resume/parse", { method: "POST", body: form });
+    sessionStorage.setItem("application_resume", JSON.stringify(payload.data));
+    location.href = "/apply/details";
+  } catch (err) {
+    showAlert(err.message || "Could not parse the resume. Please try again.");
+    uploadButton.disabled = false;
+    uploadButton.textContent = uploadButtonText;
+  }
+});
+</script>
+{% endblock %}

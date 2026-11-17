@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}{{ job.title }} at {{ job.company }}{% endblock %}
+{% block content %}
+<section class="hero">
+  <div class="hero-copy">
+    <p class="eyebrow">{{ job.company }} Careers</p>
+    <h1>{{ job.title }}</h1>
+    <p class="lead">{{ job.description }}</p>
+    <div class="meta">
+      <span class="pill">{{ job.location }}</span>
+      <span class="pill">{{ job.type }}</span>
+      <span class="pill">{{ job.posted }}</span>
+    </div>
+    <div class="actions">
+      <a class="btn large" href="/apply">Apply now</a>
+      <a class="btn ghost" href="/login">Already applied? Login</a>
+    </div>
+  </div>
+  <aside class="hero-card">
+    <h2>Job overview</h2>
+    <dl class="overview">
+      <div><dt>Role</dt><dd>{{ job.title }}</dd></div>
+      <div><dt>Company</dt><dd>{{ job.company }}</dd></div>
+      <div><dt>Location</dt><dd>{{ job.location }}</dd></div>
+      <div><dt>Type</dt><dd>{{ job.type }}</dd></div>
+    </dl>
+    <a class="btn block" href="/apply">Start application</a>
+    <p class="muted small">Applications are reviewed on a rolling basis.</p>
+  </aside>
+</section>
+
+<section class="job-layout">
+  <div class="job-panel card">
+    <h2>About the role</h2>
+    <p>{{ job.description }}</p>
+
+    <h3>What you'll do</h3>
+    <ul class="check-list">
+      {% for item in job.responsibilities %}<li>{{ item }}</li>{% endfor %}
+    </ul>
+
+    <h3>What we're looking for</h3>
+    <ul class="check-list">
+      {% for item in job.requirements %}<li>{{ item }}</li>{% endfor %}
+    </ul>
+
+    <h3>Perks &amp; benefits</h3>
+    <ul class="check-list">
+      {% for item in job.perks %}<li>{{ item }}</li>{% endfor %}
+    </ul>
+  </div>
+
+  <aside class="job-side card">
+    <h2>Hiring process</h2>
+    <ol class="steps-list">
+      <li><strong>Upload your resume</strong><span>PDF or DOCX. We pre-fill your details automatically.</span></li>
+      <li><strong>Review your profile</strong><span>Add education, projects, internships, and experience.</span></li>
+      <li><strong>Create a password</strong><span>Secure your application account.</span></li>
+      <li><strong>Verify your identity</strong><span>Confirm your email and WhatsApp with one-time codes to activate your account.</span></li>
+    </ol>
+    <a class="btn block" href="/apply">Apply for this role</a>
+    <p class="muted small">Already applied? <a href="/login">Login to your dashboard</a>.</p>
+  </aside>
+</section>
+
+<section class="steps">
+  <article class="step-card">
+    <span class="step-number">01</span>
+    <h3>Resume upload</h3>
+    <p>Drop in your resume and let the parser pull out your name, contact details, education, projects, and experience.</p>
+  </article>
+  <article class="step-card">
+    <span class="step-number">02</span>
+    <h3>Review &amp; edit</h3>
+    <p>Check the auto-filled details and add structured entries for education, projects, internships, and work experience.</p>
+  </article>
+  <article class="step-card">
+    <span class="step-number">03</span>
+    <h3>Account security</h3>
+    <p>Create a password, then confirm your email with a one-time code.</p>
+  </article>
+  <article class="step-card">
+    <span class="step-number">04</span>
+    <h3>Application dashboard</h3>
+    <p>Track your application status and review everything tied to your profile.</p>
+  </article>
+</section>
+{% endblock %}
